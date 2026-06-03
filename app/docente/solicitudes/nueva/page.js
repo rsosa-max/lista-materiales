@@ -73,6 +73,15 @@ let _key = 0
 const newKey = () => ++_key
 const blankRow = () => ({ key: newKey(), material_id: null, nombre_material: '', cantidad: '', unidad: 'pieza' })
 
+function F({ label, required, children }) {
+  return (
+    <label style={{ display: 'block', fontSize: 13, color: '#6b6a60', marginBottom: 14 }}>
+      {label}{required && <span style={{ color: '#e74c3c' }}> *</span>}
+      <div style={{ marginTop: 4 }}>{children}</div>
+    </label>
+  )
+}
+
 export default function NuevaSolicitudPage() {
   const router = useRouter()
   const [docente, setDocente]   = useState(null)
@@ -176,13 +185,6 @@ export default function NuevaSolicitudPage() {
     <main style={{ minHeight: '100vh', background: BG, display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: BODY }}>
       <p style={{ color: '#6b6a60' }}>Cargando…</p>
     </main>
-  )
-
-  const F = ({ label, required, children }) => (
-    <label style={{ display: 'block', fontSize: 13, color: '#6b6a60', marginBottom: 14 }}>
-      {label}{required && <span style={{ color: '#e74c3c' }}> *</span>}
-      <div style={{ marginTop: 4 }}>{children}</div>
-    </label>
   )
 
   return (

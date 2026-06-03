@@ -60,6 +60,24 @@ let _key = 0
 const newKey = () => ++_key
 const blankRow = () => ({ key: newKey(), material_id: null, nombre_material: '', cantidad: '', unidad: 'pieza' })
 
+function Field({ label, value }) {
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <p style={{ fontSize: 11, color: '#9a988c', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 3px' }}>{label}</p>
+      <p style={{ fontSize: 14, color: '#1C1B17', margin: 0 }}>{value || <em style={{ color: '#b3b1a4' }}>—</em>}</p>
+    </div>
+  )
+}
+
+function F({ label, required, children }) {
+  return (
+    <label style={{ display: 'block', fontSize: 13, color: '#6b6a60', marginBottom: 14 }}>
+      {label}{required && <span style={{ color: '#e74c3c' }}> *</span>}
+      <div style={{ marginTop: 4 }}>{children}</div>
+    </label>
+  )
+}
+
 function MaterialRow({ row, catalogo, onChange, onRemove }) {
   const [showSug, setShowSug] = useState(false)
   const filtered = row.nombre_material
@@ -224,20 +242,6 @@ export default function SolicitudDetailPage() {
 
   const editable = solicitud?.estado === 'borrador'
   const badge    = BADGE[solicitud?.estado] ?? BADGE.borrador
-
-  const Field = ({ label, value }) => (
-    <div style={{ marginBottom: 14 }}>
-      <p style={{ fontSize: 11, color: '#9a988c', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 3px' }}>{label}</p>
-      <p style={{ fontSize: 14, color: '#1C1B17', margin: 0 }}>{value || <em style={{ color: '#b3b1a4' }}>—</em>}</p>
-    </div>
-  )
-
-  const F = ({ label, required, children }) => (
-    <label style={{ display: 'block', fontSize: 13, color: '#6b6a60', marginBottom: 14 }}>
-      {label}{required && <span style={{ color: '#e74c3c' }}> *</span>}
-      <div style={{ marginTop: 4 }}>{children}</div>
-    </label>
-  )
 
   return (
     <main style={{ minHeight: '100vh', background: BG, fontFamily: BODY, color: '#1C1B17' }}>
