@@ -149,32 +149,52 @@ export default function NuevaSolicitudPage() {
     setError(null)
     setSaving(true)
     try {
-      const { data: sol, error: se } = await supabase.from('solicitudes').insert({
-        docente_id: docente.id,
-        materia_id: form.materia_id || null,
+      const payload = {
+        docente_id:      docente.id,
+        materia_id:      form.materia_id || null,
         nombre_practica: form.nombre_practica.trim(),
-        fecha_practica:  form.fecha_practica,
+        fecha_practica:  form.fecha_practica || null,
         habilidad:       form.habilidad.trim() || null,
         estado:          enviar ? 'enviada' : 'borrador',
         ...(enviar ? { fecha_enviada: new Date().toISOString() } : {}),
-      }).select('id').single()
-      if (se) throw se
-
-      const rows = filas
-        .filter(f => f.nombre_material.trim())
-        .map(f => ({
-          solicitud_id:   sol.id,
-          material_id:    f.material_id || null,
-          nombre_material: f.nombre_material.trim(),
-          cantidad:        f.cantidad ? parseInt(f.cantidad) : null,
-          unidad:          f.unidad,
-        }))
-      if (rows.length) {
-        const { error: me } = await supabase.from('solicitud_materiales').insert(rows)
-        if (me) throw me
       }
-      router.push(`/docente/solicitudes/${sol.id}`)
+
+      // Insert separado del select para evitar problemas de RLS
+      const { error: insertErr } = await supabase.from('solicitudes').insert(payload)
+      if (insertErr) throw new Error(insertErr.message)
+
+      // Obtener el ID del registro recién creado
+      const { data: recientes, error: fetchErr } = await supabase
+        .from('solicitudes')
+        .select('id')
+        .eq('docente_id', docente.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+
+      const solId = recientes?.[0]?.id
+
+      // Insertar materiales si tenemos el ID
+      if (solId) {
+        const rows = filas
+          .filter(f => f.nombre_material.trim())
+          .map(f => ({
+            solicitud_id:    solId,
+            material_id:     f.material_id || null,
+            nombre_material: f.nombre_material.trim(),
+            cantidad:        f.cantidad ? parseInt(f.cantidad) : null,
+            unidad:          f.unidad,
+          }))
+        if (rows.length) {
+          const { error: matErr } = await supabase.from('solicitud_materiales').insert(rows)
+          if (matErr) throw new Error(matErr.message)
+        }
+        router.push(`/docente/solicitudes/${solId}`)
+      } else {
+        // Insert funcionó pero no podemos leer el ID (posible RLS en SELECT)
+        router.push('/docente/solicitudes')
+      }
     } catch (e) {
+      console.error('[guardar solicitud]', e)
       setError(e.message)
     } finally {
       setSaving(false)
@@ -189,6 +209,12 @@ export default function NuevaSolicitudPage() {
 
   return (
     <main style={{ minHeight: '100vh', background: BG, fontFamily: BODY, color: '#1C1B17' }}>
+      {error && (
+        <div style={{ position: 'sticky', top: 0, zIndex: 50, background: '#fbeaea', borderBottom: '2px solid #f5c6c6', padding: '12px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ color: '#8a2020', fontSize: 13, fontWeight: 500 }}>⚠ {error}</span>
+          <button onClick={() => setError(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8a2020', fontSize: 18, lineHeight: 1 }}>✕</button>
+        </div>
+      )}
       <header style={{ background: '#fff', borderBottom: '1px solid #e7e4d6', padding: '14px 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <div>
           <p style={{ fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase', color: ACCENT, marginBottom: 2 }}>Cirujano Dentista</p>
@@ -200,11 +226,6 @@ export default function NuevaSolicitudPage() {
       </header>
 
       <div style={{ maxWidth: 780, margin: '0 auto', padding: '32px 24px' }}>
-        {error && (
-          <div style={{ background: '#fbeaea', color: '#8a2020', borderRadius: 10, padding: '12px 16px', fontSize: 13, marginBottom: 20 }}>
-            {error}
-          </div>
-        )}
 
         {/* Datos generales */}
         <section style={{ background: '#fff', borderRadius: 16, border: '1px solid #e7e4d6', padding: '24px', marginBottom: 20 }}>

@@ -207,12 +207,12 @@ export default function SolicitudDetailPage() {
       const { error: se } = await supabase.from('solicitudes').update({
         materia_id:      form.materia_id || null,
         nombre_practica: form.nombre_practica.trim(),
-        fecha_practica:  form.fecha_practica,
+        fecha_practica:  form.fecha_practica || null,
         habilidad:       form.habilidad.trim() || null,
         estado:          enviar ? 'enviada' : 'borrador',
         ...(enviar ? { fecha_enviada: new Date().toISOString() } : {}),
       }).eq('id', id)
-      if (se) throw se
+      if (se) throw new Error(se.message)
 
       await supabase.from('solicitud_materiales').delete().eq('solicitud_id', id)
       const rows = filas.filter(f => f.nombre_material.trim()).map(f => ({
@@ -224,10 +224,11 @@ export default function SolicitudDetailPage() {
       }))
       if (rows.length) {
         const { error: me } = await supabase.from('solicitud_materiales').insert(rows)
-        if (me) throw me
+        if (me) throw new Error(me.message)
       }
       await load()
     } catch (e) {
+      console.error('[guardar solicitud]', e)
       setError(e.message)
     } finally {
       setSaving(false)
@@ -246,6 +247,13 @@ export default function SolicitudDetailPage() {
   return (
     <main style={{ minHeight: '100vh', background: BG, fontFamily: BODY, color: '#1C1B17' }}>
       <style>{PRINT_CSS}</style>
+
+      {error && (
+        <div className="no-print" style={{ position: 'sticky', top: 0, zIndex: 50, background: '#fbeaea', borderBottom: '2px solid #f5c6c6', padding: '12px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span style={{ color: '#8a2020', fontSize: 13, fontWeight: 500 }}>⚠ {error}</span>
+          <button onClick={() => setError(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#8a2020', fontSize: 18, lineHeight: 1 }}>✕</button>
+        </div>
+      )}
 
       {/* ── Print document ── */}
       <div className="print-only">
@@ -333,12 +341,6 @@ export default function SolicitudDetailPage() {
             </span>
           )}
         </div>
-
-        {error && (
-          <div style={{ background: '#fbeaea', color: '#8a2020', borderRadius: 10, padding: '12px 16px', fontSize: 13, marginBottom: 20 }}>
-            {error}
-          </div>
-        )}
 
         {solicitud?.notas_coordinador && (
           <div style={{ background: '#e8f4f1', borderRadius: 10, padding: '12px 16px', fontSize: 13, marginBottom: 20, borderLeft: `3px solid ${ACCENT}` }}>
