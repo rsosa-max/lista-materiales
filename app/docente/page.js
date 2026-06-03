@@ -420,6 +420,20 @@ export default function DocentePage() {
           )
         })}
 
+        {/* ── Solicitudes de materiales ── */}
+        <section style={{ background: '#fff', borderRadius: 16, border: '1px solid #e7e4d6', overflow: 'hidden', marginBottom: 24 }}>
+          <div style={{ padding: '16px 20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div>
+              <h2 style={{ fontFamily: DISPLAY, fontSize: 18, fontWeight: 600, margin: '0 0 4px' }}>Solicitudes de materiales</h2>
+              <p style={{ fontSize: 13, color: '#6b6a60', margin: 0 }}>Gestiona tus solicitudes para prácticas</p>
+            </div>
+            <a href="/docente/solicitudes"
+              style={{ padding: '8px 16px', borderRadius: 8, background: ACCENT, color: '#fff', border: 'none', fontFamily: BODY, fontWeight: 600, fontSize: 13, textDecoration: 'none', display: 'inline-block' }}>
+              Ver solicitudes →
+            </a>
+          </div>
+        </section>
+
         {/* ── Cambiar contraseña ── */}
         <section style={{ background: '#fff', borderRadius: 16, border: '1px solid #e7e4d6', overflow: 'hidden' }}>
           <button

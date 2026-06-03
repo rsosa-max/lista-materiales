@@ -46,6 +46,70 @@ export default function CoordinadorPage() {
   const [matSaving, setMatSaving]     = useState(false)
   const [matError, setMatError]       = useState(null)
 
+  // Solicitudes
+  const [showSols, setShowSols]               = useState(false)
+  const [solsLoading, setSolsLoading]         = useState(false)
+  const [solicitudes, setSolicitudes]         = useState([])
+  const [filtroEstado, setFiltroEstado]       = useState('todas')
+  const [openSols, setOpenSols]               = useState(new Set())
+  const [solMateriales, setSolMateriales]     = useState({})   // { [id]: materiales[] }
+  const [notasEdit, setNotasEdit]             = useState({})   // { [id]: string }
+  const [savingEstado, setSavingEstado]       = useState(null) // solicitud id being updated
+
+  const BADGE_SOL = {
+    borrador:  { background: '#f3f1e8', color: '#6b6a60',  label: 'Borrador'  },
+    enviada:   { background: '#dbeafe', color: '#1e40af',  label: 'Enviada'   },
+    recibida:  { background: '#e8f4f1', color: ACCENT,     label: 'Recibida'  },
+    procesada: { background: '#dcfce7', color: '#166534',  label: 'Procesada' },
+  }
+
+  async function loadSolicitudes() {
+    setSolsLoading(true)
+    const { data } = await supabase
+      .from('solicitudes')
+      .select('*, docente:docentes(nombre), materia:materias(nombre)')
+      .order('created_at', { ascending: false })
+    setSolicitudes((data || []).map(s => ({
+      ...s,
+      docente: Array.isArray(s.docente) ? s.docente[0] : s.docente,
+      materia: Array.isArray(s.materia) ? s.materia[0] : s.materia,
+    })))
+    setSolsLoading(false)
+  }
+
+  async function toggleSol(id) {
+    setOpenSols(prev => {
+      const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s
+    })
+    if (!solMateriales[id]) {
+      const { data } = await supabase.from('solicitud_materiales').select('*').eq('solicitud_id', id).order('id')
+      setSolMateriales(prev => ({ ...prev, [id]: data || [] }))
+    }
+  }
+
+  async function cambiarEstado(sol, nuevoEstado) {
+    setSavingEstado(sol.id)
+    const update = { estado: nuevoEstado }
+    if (nuevoEstado === 'procesada') update.fecha_procesada = new Date().toISOString()
+    await supabase.from('solicitudes').update(update).eq('id', sol.id)
+    setSolicitudes(prev => prev.map(s => s.id === sol.id ? { ...s, ...update } : s))
+    setSavingEstado(null)
+  }
+
+  async function guardarNotas(id) {
+    setSavingEstado(id)
+    await supabase.from('solicitudes').update({ notas_coordinador: notasEdit[id] ?? '' }).eq('id', id)
+    setSolicitudes(prev => prev.map(s => s.id === id ? { ...s, notas_coordinador: notasEdit[id] } : s))
+    setSavingEstado(null)
+  }
+
+  function fmtFechaSol(iso) {
+    if (!iso) return '—'
+    return new Date(iso + 'T12:00:00').toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })
+  }
+
+  const solsFiltradas = solicitudes.filter(s => filtroEstado === 'todas' || s.estado === filtroEstado)
+
   useEffect(() => {
     const link = document.createElement('link')
     link.rel  = 'stylesheet'
@@ -430,6 +494,170 @@ export default function CoordinadorPage() {
               </tbody>
             </table>
           )}
+        </section>
+
+        {/* ── Solicitudes de materiales ── */}
+        <section style={{ background: '#fff', borderRadius: 16, border: '1px solid #e7e4d6', overflow: 'hidden', marginTop: 24 }}>
+          <button
+            onClick={() => { setShowSols(v => { if (!v) loadSolicitudes(); return !v }) }}
+            style={{ width: '100%', textAlign: 'left', padding: '14px 20px', background: 'none', border: 'none', cursor: 'pointer', fontFamily: BODY, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+          >
+            <h2 style={{ fontFamily: DISPLAY, fontSize: 18, fontWeight: 600, margin: 0 }}>Solicitudes de materiales</h2>
+            <svg width="16" height="16" viewBox="0 0 12 12" fill="none"
+              style={{ transition: 'transform 0.25s ease', transform: showSols ? 'rotate(180deg)' : 'none', flexShrink: 0 }}>
+              <path d="M2 4l4 4 4-4" stroke={ACCENT} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </button>
+
+          <div style={{ display: 'grid', gridTemplateRows: showSols ? '1fr' : '0fr', transition: 'grid-template-rows 0.3s ease' }}>
+            <div style={{ overflow: 'hidden' }}>
+              <div style={{ borderTop: '1px solid #eceadd' }}>
+
+                {/* Filtro */}
+                <div style={{ padding: '12px 20px', display: 'flex', gap: 8, borderBottom: '1px solid #eceadd', flexWrap: 'wrap' }}>
+                  {['todas', 'borrador', 'enviada', 'recibida', 'procesada'].map(est => (
+                    <button key={est} onClick={() => setFiltroEstado(est)}
+                      style={{ padding: '4px 12px', borderRadius: 20, border: `1.5px solid ${filtroEstado === est ? ACCENT : '#d4d0be'}`, background: filtroEstado === est ? ACCENT : 'transparent', color: filtroEstado === est ? '#fff' : '#6b6a60', fontFamily: BODY, fontSize: 12, cursor: 'pointer', fontWeight: filtroEstado === est ? 600 : 400, textTransform: 'capitalize' }}>
+                      {est === 'todas' ? 'Todas' : est.charAt(0).toUpperCase() + est.slice(1)}
+                    </button>
+                  ))}
+                </div>
+
+                {solsLoading ? (
+                  <p style={{ padding: '20px', color: '#b3b1a4', fontSize: 14 }}>Cargando solicitudes…</p>
+                ) : solsFiltradas.length === 0 ? (
+                  <p style={{ padding: '20px', color: '#b3b1a4', fontSize: 14 }}>No hay solicitudes con ese filtro.</p>
+                ) : (
+                  <table style={{ borderCollapse: 'collapse', width: '100%' }}>
+                    <thead>
+                      <tr style={{ background: '#faf9f4', borderBottom: '1px solid #eceadd' }}>
+                        {['Docente', 'Práctica', 'Materia', 'Fecha práctica', 'Estado', ''].map((h, i) => (
+                          <th key={i} style={{ padding: '8px 16px', fontSize: 11, fontWeight: 600, color: '#9a988c', textAlign: 'left', letterSpacing: '0.04em', textTransform: 'uppercase', fontFamily: BODY }}>
+                            {h}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    {solsFiltradas.map(sol => {
+                      const open  = openSols.has(sol.id)
+                      const badge = BADGE_SOL[sol.estado] ?? BADGE_SOL.borrador
+                      const mats  = solMateriales[sol.id] || []
+                      return (
+                        <tbody key={sol.id}>
+                          <tr onClick={() => toggleSol(sol.id)}
+                            style={{ cursor: 'pointer', borderBottom: open ? 'none' : '1px solid #f0eee3', background: open ? '#fbfaf5' : '#fff' }}
+                            onMouseEnter={e => { if (!open) e.currentTarget.style.background = '#faf9f4' }}
+                            onMouseLeave={e => { e.currentTarget.style.background = open ? '#fbfaf5' : '#fff' }}>
+                            <td style={{ padding: '10px 16px', fontWeight: 600, fontSize: 13 }}>{sol.docente?.nombre}</td>
+                            <td style={{ padding: '10px 16px', fontSize: 13 }}>{sol.nombre_practica}</td>
+                            <td style={{ padding: '10px 16px', fontSize: 13, color: '#6b6a60' }}>{sol.materia?.nombre || '—'}</td>
+                            <td style={{ padding: '10px 16px', fontSize: 13, color: '#6b6a60' }}>{fmtFechaSol(sol.fecha_practica)}</td>
+                            <td style={{ padding: '10px 16px' }}>
+                              <span style={{ ...badge, fontSize: 11, fontWeight: 600, padding: '3px 10px', borderRadius: 20, whiteSpace: 'nowrap' }}>{badge.label}</span>
+                            </td>
+                            <td style={{ padding: '10px 16px', textAlign: 'right' }}>
+                              <svg width="14" height="14" viewBox="0 0 12 12" fill="none"
+                                style={{ transition: 'transform 0.25s ease', transform: open ? 'rotate(180deg)' : 'none', color: '#9a988c', display: 'inline-block' }}>
+                                <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                              </svg>
+                            </td>
+                          </tr>
+                          {/* Detail row */}
+                          <tr style={{ borderBottom: '1px solid #f0eee3' }}>
+                            <td colSpan={6} style={{ padding: 0 }}>
+                              <div style={{ display: 'grid', gridTemplateRows: open ? '1fr' : '0fr', transition: 'grid-template-rows 0.3s ease' }}>
+                                <div style={{ overflow: 'hidden', opacity: open ? 1 : 0, transition: 'opacity 0.2s ease' }}>
+                                  <div style={{ padding: '16px 20px', background: '#fbfaf5', borderTop: '1px solid #eceadd' }}>
+
+                                    {/* Info grid */}
+                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 12, marginBottom: 16 }}>
+                                      {[
+                                        ['Habilidad/Competencia', sol.habilidad],
+                                        ['Fecha enviada', sol.fecha_enviada ? fmtFechaSol(sol.fecha_enviada.split('T')[0]) : '—'],
+                                        ['Fecha procesada', sol.fecha_procesada ? fmtFechaSol(sol.fecha_procesada.split('T')[0]) : '—'],
+                                      ].map(([lbl, val]) => (
+                                        <div key={lbl}>
+                                          <p style={{ fontSize: 10, color: '#9a988c', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 3px' }}>{lbl}</p>
+                                          <p style={{ fontSize: 13, color: '#1C1B17', margin: 0 }}>{val || '—'}</p>
+                                        </div>
+                                      ))}
+                                    </div>
+
+                                    {/* Materiales table */}
+                                    {mats.length > 0 && (
+                                      <table style={{ borderCollapse: 'collapse', width: '100%', marginBottom: 16, background: '#fff', borderRadius: 8, overflow: 'hidden' }}>
+                                        <thead>
+                                          <tr style={{ background: '#f0ede6' }}>
+                                            {['#', 'Material', 'Cantidad', 'Unidad'].map(h => (
+                                              <th key={h} style={{ padding: '6px 10px', fontSize: 10, fontWeight: 600, color: '#6b6a60', textAlign: h === '#' || h === 'Cantidad' ? 'center' : 'left', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
+                                            ))}
+                                          </tr>
+                                        </thead>
+                                        <tbody>
+                                          {mats.map((m, i) => (
+                                            <tr key={m.id} style={{ borderTop: '1px solid #f0eee3' }}>
+                                              <td style={{ padding: '6px 10px', textAlign: 'center', fontSize: 11, color: '#9a988c' }}>{i + 1}</td>
+                                              <td style={{ padding: '6px 10px', fontSize: 13 }}>{m.nombre_material}</td>
+                                              <td style={{ padding: '6px 10px', textAlign: 'center', fontWeight: 700, fontSize: 13 }}>{m.cantidad ?? '—'}</td>
+                                              <td style={{ padding: '6px 10px', fontSize: 12, color: '#6b6a60', textTransform: 'capitalize' }}>{m.unidad}</td>
+                                            </tr>
+                                          ))}
+                                        </tbody>
+                                      </table>
+                                    )}
+
+                                    {/* Notas coordinador */}
+                                    <div style={{ marginBottom: 14 }}>
+                                      <p style={{ fontSize: 11, color: '#9a988c', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 4px' }}>Notas del coordinador</p>
+                                      <textarea
+                                        value={notasEdit[sol.id] ?? sol.notas_coordinador ?? ''}
+                                        onChange={e => setNotasEdit(prev => ({ ...prev, [sol.id]: e.target.value }))}
+                                        rows={2}
+                                        placeholder="Agregar notas…"
+                                        style={{ width: '100%', padding: '7px 10px', borderRadius: 8, border: '1.5px solid #d4d0be', fontFamily: BODY, fontSize: 13, resize: 'vertical', boxSizing: 'border-box', outline: 'none' }}
+                                      />
+                                    </div>
+
+                                    {/* Action buttons */}
+                                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                      {sol.estado === 'enviada' && (
+                                        <button
+                                          onClick={e => { e.stopPropagation(); cambiarEstado(sol, 'recibida') }}
+                                          disabled={savingEstado === sol.id}
+                                          style={{ ...btn({ small: true }), opacity: savingEstado === sol.id ? 0.7 : 1 }}>
+                                          Marcar como recibida
+                                        </button>
+                                      )}
+                                      {(sol.estado === 'enviada' || sol.estado === 'recibida') && (
+                                        <button
+                                          onClick={e => { e.stopPropagation(); cambiarEstado(sol, 'procesada') }}
+                                          disabled={savingEstado === sol.id}
+                                          style={{ ...btn({ small: true, bg: '#166534' }), opacity: savingEstado === sol.id ? 0.7 : 1 }}>
+                                          Marcar como procesada
+                                        </button>
+                                      )}
+                                      {(notasEdit[sol.id] !== undefined && notasEdit[sol.id] !== (sol.notas_coordinador ?? '')) && (
+                                        <button
+                                          onClick={e => { e.stopPropagation(); guardarNotas(sol.id) }}
+                                          disabled={savingEstado === sol.id}
+                                          style={{ ...btn({ small: true, bg: '#6b6a60' }), opacity: savingEstado === sol.id ? 0.7 : 1 }}>
+                                          Guardar notas
+                                        </button>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        </tbody>
+                      )
+                    })}
+                  </table>
+                )}
+              </div>
+            </div>
+          </div>
         </section>
 
       </div>
