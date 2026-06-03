@@ -24,7 +24,7 @@ const ghostBtn = {
   border: '1.5px solid #d4d0be', fontFamily: BODY, fontSize: 12, cursor: 'pointer', color: '#6b6a60',
 }
 
-const UNIDADES = ['pieza', 'caja', 'rollo', 'otro']
+const UNIDADES = ['pieza', 'caja', 'rollo', 'kg', 'litro', 'gramos', 'ml', 'otro']
 
 function MaterialRow({ row, catalogo, onChange, onRemove }) {
   const [showSug, setShowSug] = useState(false)
@@ -132,9 +132,9 @@ export default function NuevaSolicitudPage() {
 
   function validar(enviar) {
     if (!form.nombre_practica.trim()) return 'El nombre de la práctica es obligatorio.'
-    if (!form.fecha_practica)        return 'La fecha de la práctica es obligatoria.'
-    if (filas.every(f => !f.nombre_material.trim())) return 'Agrega al menos un material.'
     if (enviar) {
+      if (!form.fecha_practica) return 'La fecha de la práctica es obligatoria para enviar.'
+      if (filas.every(f => !f.nombre_material.trim())) return 'Agrega al menos un material antes de enviar.'
       const hoy = new Date(); hoy.setHours(0, 0, 0, 0)
       const fecha = new Date(form.fecha_practica + 'T12:00:00')
       if ((fecha - hoy) / 86400000 < 14)

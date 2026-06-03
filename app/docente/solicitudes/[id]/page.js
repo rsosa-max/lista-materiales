@@ -30,7 +30,7 @@ const BADGE = {
   recibida:  { background: '#e8f4f1', color: '#0E6E62',  label: 'Recibida'  },
   procesada: { background: '#dcfce7', color: '#166534',  label: 'Procesada' },
 }
-const UNIDADES = ['pieza', 'caja', 'rollo', 'otro']
+const UNIDADES = ['pieza', 'caja', 'rollo', 'kg', 'litro', 'gramos', 'ml', 'otro']
 
 const PRINT_CSS = `
   .print-only { display: none; }
@@ -187,9 +187,9 @@ export default function SolicitudDetailPage() {
 
   function validar(enviar) {
     if (!form.nombre_practica.trim()) return 'El nombre de la práctica es obligatorio.'
-    if (!form.fecha_practica)         return 'La fecha de la práctica es obligatoria.'
-    if (filas.every(f => !f.nombre_material.trim())) return 'Agrega al menos un material.'
     if (enviar) {
+      if (!form.fecha_practica) return 'La fecha de la práctica es obligatoria para enviar.'
+      if (filas.every(f => !f.nombre_material.trim())) return 'Agrega al menos un material antes de enviar.'
       const hoy = new Date(); hoy.setHours(0, 0, 0, 0)
       const fecha = new Date(form.fecha_practica + 'T12:00:00')
       if ((fecha - hoy) / 86400000 < 14)
