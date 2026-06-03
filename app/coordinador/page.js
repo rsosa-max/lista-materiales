@@ -65,14 +65,25 @@ export default function CoordinadorPage() {
 
   async function loadSolicitudes() {
     setSolsLoading(true)
-    const { data } = await supabase
+    const { data: sols } = await supabase
       .from('solicitudes')
-      .select('*, docente:docentes(nombre), materia:materias(nombre)')
-      .order('created_at', { ascending: false })
-    setSolicitudes((data || []).map(s => ({
+      .select('*')
+      .order('id', { ascending: false })
+
+    // Nombres de docentes y materias por separado (sin depender de FK en BD)
+    const docenteIds = [...new Set((sols || []).map(s => s.docente_id).filter(Boolean))]
+    const materiaIds = [...new Set((sols || []).map(s => s.materia_id).filter(Boolean))]
+    const [{ data: docs }, { data: mats }] = await Promise.all([
+      docenteIds.length ? supabase.from('docentes').select('id, nombre').in('id', docenteIds) : Promise.resolve({ data: [] }),
+      materiaIds.length ? supabase.from('materias').select('id, nombre').in('id', materiaIds) : Promise.resolve({ data: [] }),
+    ])
+    const docMap = Object.fromEntries((docs || []).map(d => [d.id, d.nombre]))
+    const matMap = Object.fromEntries((mats || []).map(m => [m.id, m.nombre]))
+
+    setSolicitudes((sols || []).map(s => ({
       ...s,
-      docente: Array.isArray(s.docente) ? s.docente[0] : s.docente,
-      materia: Array.isArray(s.materia) ? s.materia[0] : s.materia,
+      docente: { nombre: docMap[s.docente_id] ?? '—' },
+      materia: { nombre: matMap[s.materia_id] ?? null },
     })))
     setSolsLoading(false)
   }

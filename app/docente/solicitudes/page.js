@@ -49,11 +49,18 @@ export default function SolicitudesPage() {
 
     const { data: sols } = await supabase
       .from('solicitudes')
-      .select('id, nombre_practica, fecha_practica, estado, created_at, materia:materias(nombre)')
+      .select('id, nombre_practica, fecha_practica, estado, materia_id')
       .eq('docente_id', doc.id)
-      .order('created_at', { ascending: false })
+      .order('id', { ascending: false })
 
-    setSolicitudes((sols || []).map(s => ({ ...s, materia: Array.isArray(s.materia) ? s.materia[0] : s.materia })))
+    // Obtener nombres de materias por separado (evita dependencia de FK en BD)
+    const ids = [...new Set((sols || []).map(s => s.materia_id).filter(Boolean))]
+    let matMap = {}
+    if (ids.length) {
+      const { data: mats } = await supabase.from('materias').select('id, nombre').in('id', ids)
+      matMap = Object.fromEntries((mats || []).map(m => [m.id, m.nombre]))
+    }
+    setSolicitudes((sols || []).map(s => ({ ...s, materia: { nombre: matMap[s.materia_id] ?? null } })))
     setLoading(false)
   }
 

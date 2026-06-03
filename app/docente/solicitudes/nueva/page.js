@@ -132,8 +132,8 @@ export default function NuevaSolicitudPage() {
 
   function validar(enviar) {
     if (!form.nombre_practica.trim()) return 'El nombre de la práctica es obligatorio.'
+    if (!form.fecha_practica)         return 'La fecha de la práctica es obligatoria.'
     if (enviar) {
-      if (!form.fecha_practica) return 'La fecha de la práctica es obligatoria para enviar.'
       if (filas.every(f => !f.nombre_material.trim())) return 'Agrega al menos un material antes de enviar.'
       const hoy = new Date(); hoy.setHours(0, 0, 0, 0)
       const fecha = new Date(form.fecha_practica + 'T12:00:00')
@@ -153,27 +153,25 @@ export default function NuevaSolicitudPage() {
         docente_id:      docente.id,
         materia_id:      form.materia_id || null,
         nombre_practica: form.nombre_practica.trim(),
-        fecha_practica:  form.fecha_practica || null,
-        habilidad:       form.habilidad.trim() || null,
+        fecha_practica:  form.fecha_practica,
+        habilidad:       form.habilidad.trim(),   // '' en vez de null (columna NOT NULL)
         estado:          enviar ? 'enviada' : 'borrador',
         ...(enviar ? { fecha_enviada: new Date().toISOString() } : {}),
       }
 
-      // Insert separado del select para evitar problemas de RLS
       const { error: insertErr } = await supabase.from('solicitudes').insert(payload)
       if (insertErr) throw new Error(insertErr.message)
 
-      // Obtener el ID del registro recién creado
-      const { data: recientes, error: fetchErr } = await supabase
+      // Obtener ID del registro recién creado (order por id, no por created_at)
+      const { data: recientes } = await supabase
         .from('solicitudes')
         .select('id')
         .eq('docente_id', docente.id)
-        .order('created_at', { ascending: false })
+        .order('id', { ascending: false })
         .limit(1)
 
       const solId = recientes?.[0]?.id
 
-      // Insertar materiales si tenemos el ID
       if (solId) {
         const rows = filas
           .filter(f => f.nombre_material.trim())
@@ -190,7 +188,6 @@ export default function NuevaSolicitudPage() {
         }
         router.push(`/docente/solicitudes/${solId}`)
       } else {
-        // Insert funcionó pero no podemos leer el ID (posible RLS en SELECT)
         router.push('/docente/solicitudes')
       }
     } catch (e) {

@@ -152,7 +152,7 @@ export default function SolicitudDetailPage() {
     setDocente(doc)
 
     const [{ data: sol }, { data: mats }, { data: dm }, { data: cats }] = await Promise.all([
-      supabase.from('solicitudes').select('*, materia:materias(id, nombre)').eq('id', id).single(),
+      supabase.from('solicitudes').select('*').eq('id', id).single(),
       supabase.from('solicitud_materiales').select('*').eq('solicitud_id', id).order('id'),
       supabase.from('docente_materias').select('materia:materias(id, nombre)').eq('docente_id', doc.id),
       supabase.from('materiales').select('id, nombre, marca_sugerida').order('nombre'),
@@ -160,10 +160,12 @@ export default function SolicitudDetailPage() {
 
     if (!sol || sol.docente_id !== doc.id) { router.push('/docente/solicitudes'); return }
 
-    const solNorm = { ...sol, materia: Array.isArray(sol.materia) ? sol.materia[0] : sol.materia }
+    const mats_list = (dm || []).map(r => Array.isArray(r.materia) ? r.materia[0] : r.materia).filter(Boolean)
+    const materia   = mats_list.find(m => m.id === sol.materia_id) ?? null
+    const solNorm   = { ...sol, materia }
     setSolicitud(solNorm)
     setMateriales(mats || [])
-    setMateriasList((dm || []).map(r => Array.isArray(r.materia) ? r.materia[0] : r.materia).filter(Boolean))
+    setMateriasList(mats_list)
     setCatalogo(cats || [])
 
     if (solNorm.estado === 'borrador') {
@@ -187,8 +189,8 @@ export default function SolicitudDetailPage() {
 
   function validar(enviar) {
     if (!form.nombre_practica.trim()) return 'El nombre de la práctica es obligatorio.'
+    if (!form.fecha_practica)         return 'La fecha de la práctica es obligatoria.'
     if (enviar) {
-      if (!form.fecha_practica) return 'La fecha de la práctica es obligatoria para enviar.'
       if (filas.every(f => !f.nombre_material.trim())) return 'Agrega al menos un material antes de enviar.'
       const hoy = new Date(); hoy.setHours(0, 0, 0, 0)
       const fecha = new Date(form.fecha_practica + 'T12:00:00')
@@ -207,8 +209,8 @@ export default function SolicitudDetailPage() {
       const { error: se } = await supabase.from('solicitudes').update({
         materia_id:      form.materia_id || null,
         nombre_practica: form.nombre_practica.trim(),
-        fecha_practica:  form.fecha_practica || null,
-        habilidad:       form.habilidad.trim() || null,
+        fecha_practica:  form.fecha_practica,
+        habilidad:       form.habilidad.trim(),   // '' en vez de null (NOT NULL)
         estado:          enviar ? 'enviada' : 'borrador',
         ...(enviar ? { fecha_enviada: new Date().toISOString() } : {}),
       }).eq('id', id)
