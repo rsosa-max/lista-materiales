@@ -1,3 +1,5 @@
+import "./globals.css"
+
 export const metadata = {
   title: "Cirujano Dentista — Materiales",
   description: "Lista de materiales académicos · Ciencias Estomatológicas · Universidad de Montemorelos",
