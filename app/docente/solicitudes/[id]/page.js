@@ -134,13 +134,6 @@ export default function SolicitudDetailPage() {
   const [form, setForm]   = useState(null)
   const [filas, setFilas] = useState([])
 
-  useEffect(() => {
-    const link = document.createElement('link')
-    link.rel = 'stylesheet'
-    link.href = 'https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Hanken+Grotesk:wght@400;500;600;700&display=swap'
-    document.head.appendChild(link)
-  }, [])
-
   useEffect(() => { load() }, [id])
 
   async function load() {
@@ -186,6 +179,14 @@ export default function SolicitudDetailPage() {
 
   function updateFila(key, updated) { setFilas(prev => prev.map(f => f.key === key ? { ...updated, key } : f)) }
   function removeFila(key)          { setFilas(prev => prev.length > 1 ? prev.filter(f => f.key !== key) : prev) }
+
+  async function eliminarBorrador() {
+    if (!confirm('¿Eliminar este borrador? Esta acción no se puede deshacer.')) return
+    await supabase.from('solicitud_materiales').delete().eq('solicitud_id', id)
+    const { error: de } = await supabase.from('solicitudes').delete().eq('id', id)
+    if (de) { setError(de.message); return }
+    router.push('/docente/solicitudes')
+  }
 
   function validar(enviar) {
     if (!form.nombre_practica.trim()) return 'El nombre de la práctica es obligatorio.'
@@ -322,7 +323,7 @@ export default function SolicitudDetailPage() {
           </h1>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <a href="/docente/solicitudes" style={{ ...ghostBtn, textDecoration: 'none', display: 'inline-block' }}>← Mis solicitudes</a>
+          <a href="/docente" style={{ ...ghostBtn, textDecoration: 'none', display: 'inline-block' }}>← Panel docente</a>
           <button onClick={() => window.print()} style={btn({ bg: '#6b6a60' })}>🖨 Imprimir</button>
         </div>
       </header>
@@ -443,14 +444,38 @@ export default function SolicitudDetailPage() {
 
         {/* Actions */}
         {editable && (
-          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-            <button onClick={() => guardar(false)} disabled={saving}
-              style={{ ...btn({ bg: '#6b6a60' }), opacity: saving ? 0.7 : 1 }}>
-              {saving ? 'Guardando…' : 'Guardar borrador'}
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'space-between', alignItems: 'center' }}>
+            <button onClick={eliminarBorrador} disabled={saving}
+              style={{ ...btn({ bg: '#e74c3c' }), opacity: saving ? 0.7 : 1 }}>
+              Eliminar borrador
             </button>
-            <button onClick={() => guardar(true)} disabled={saving}
-              style={{ ...btn(), opacity: saving ? 0.7 : 1 }}>
-              {saving ? 'Enviando…' : 'Enviar solicitud'}
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => guardar(false)} disabled={saving}
+                style={{ ...btn({ bg: '#6b6a60' }), opacity: saving ? 0.7 : 1 }}>
+                {saving ? 'Guardando…' : 'Guardar borrador'}
+              </button>
+              <button onClick={() => guardar(true)} disabled={saving}
+                style={{ ...btn(), opacity: saving ? 0.7 : 1 }}>
+                {saving ? 'Enviando…' : 'Enviar solicitud'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Print CTA */}
+        {!editable && (
+          <div className="no-print" style={{ background: '#fff', borderRadius: 14, border: '1px solid #e7e4d6', padding: '20px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16 }}>
+            <div>
+              <p style={{ fontFamily: DISPLAY, fontSize: 15, fontWeight: 600, margin: '0 0 3px', color: '#1C1B17' }}>
+                Imprimir solicitud
+              </p>
+              <p style={{ fontSize: 12, color: '#9a988c', margin: 0 }}>
+                Genera una copia en papel para entregar a coordinación.
+              </p>
+            </div>
+            <button onClick={() => window.print()}
+              style={{ ...btn({ bg: '#6b6a60' }), whiteSpace: 'nowrap', flexShrink: 0 }}>
+              🖨 Imprimir
             </button>
           </div>
         )}

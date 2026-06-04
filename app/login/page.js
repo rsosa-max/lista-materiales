@@ -20,17 +20,14 @@ export default function LoginPage() {
   const [error, setError]     = useState(null)
   const [success, setSuccess] = useState(null)
 
-  useEffect(() => {
-    const link = document.createElement('link')
-    link.rel  = 'stylesheet'
-    link.href = 'https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Hanken+Grotesk:wght@400;500;600;700&display=swap'
-    document.head.appendChild(link)
-  }, [])
-
   const resetForm = () => { setNomina(''); setCorreo(''); setPass(''); setConfirm(''); setError(null); setSuccess(null) }
 
-  async function getDestino(userId) {
-    const { data } = await supabase.from('docentes').select('is_coordinador').eq('auth_user_id', userId).single()
+  async function getDestino(userId, userEmail) {
+    let { data } = await supabase.from('docentes').select('is_coordinador').eq('auth_user_id', userId).single()
+    if (!data && userEmail) {
+      const { data: d2 } = await supabase.from('docentes').select('is_coordinador').eq('email_real', userEmail).single()
+      data = d2
+    }
     return data?.is_coordinador ? '/coordinador' : '/docente'
   }
 
@@ -39,13 +36,44 @@ export default function LoginPage() {
     setError(null)
     setLoading(true)
     try {
-      const { data: email, error: rpcErr } = await supabase.rpc('get_email_by_nomina', { nomina })
-      if (rpcErr || !email) throw new Error('Nómina no encontrada')
+      let candidatos = []
 
-      const { data, error: signInErr } = await supabase.auth.signInWithPassword({ email, password })
-      if (signInErr) throw signInErr
+      if (nomina.includes('@')) {
+        // El usuario escribió su correo directamente
+        candidatos = [nomina.trim()]
+      } else {
+        // El usuario escribió su nómina → resolver correo via API con service role key
+        const resp = await fetch('/api/email-por-nomina', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ nomina: nomina.trim() }),
+        })
+        const { email: emailFromDB } = await resp.json()
 
-      router.push(await getDestino(data.user.id))
+        if (!emailFromDB) throw new Error('Nómina no encontrada o cuenta no activada. Usa "Primer acceso" si es la primera vez.')
+
+        // Incluir también el formato interno por compatibilidad con cuentas antiguas
+        candidatos = [...new Set([emailFromDB, `${nomina.trim()}@docentes.interna`].filter(Boolean))]
+      }
+
+      let loginData = null
+      let lastErr   = null
+      for (const email of candidatos) {
+        const { data, error: signInErr } = await supabase.auth.signInWithPassword({ email, password })
+        if (!signInErr && data?.user) { loginData = data; break }
+        lastErr = signInErr
+      }
+
+      if (!loginData) {
+        const msg = lastErr?.message ?? ''
+        if (msg === 'Invalid login credentials')
+          throw new Error('Correo/nómina o contraseña incorrectos')
+        if (msg.toLowerCase().includes('email not confirmed'))
+          throw new Error('Confirma tu correo antes de iniciar sesión. Revisa tu bandeja de entrada.')
+        throw new Error(msg || 'No se pudo iniciar sesión')
+      }
+
+      router.push(await getDestino(loginData.user.id, loginData.user.email))
     } catch (err) {
       setError(err.message)
     } finally {
@@ -65,18 +93,38 @@ export default function LoginPage() {
       if (rpcErr) throw rpcErr
       if (!existe) throw new Error('Nómina no encontrada en el sistema')
 
-      const email = `${nomina}@docentes.interna`
-      const { data, error: signUpErr } = await supabase.auth.signUp({ email, password })
-      if (signUpErr) throw signUpErr
+      const correoReal = correo.trim()
 
-      const { error: vincErr } = await supabase.rpc('vincular_docente', {
-        nomina,
-        user_id: data.user.id,
-        email_real: correo.trim(),
+      // Crear cuenta; si ya existe, iniciar sesión con las credenciales dadas
+      let session
+      const { data: signUpData, error: signUpErr } = await supabase.auth.signUp({ email: correoReal, password })
+      if (signUpErr) {
+        const msg = signUpErr.message.toLowerCase()
+        if (msg.includes('already registered') || msg.includes('already been registered') || msg.includes('user already')) {
+          const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({ email: correoReal, password })
+          if (signInErr) throw new Error('Ya existe una cuenta con ese correo. Si la contraseña es incorrecta, usa "Olvidé mi contraseña".')
+          session = signInData.session
+        } else {
+          throw signUpErr
+        }
+      } else {
+        session = signUpData.session
+      }
+
+      if (!session?.access_token)
+        throw new Error('Cuenta creada. Confirma tu correo electrónico antes de continuar.')
+
+      // Vincular via API con service role key (bypasea RLS)
+      const vincResp = await fetch('/api/vincular', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${session.access_token}` },
+        body: JSON.stringify({ nomina }),
       })
-      if (vincErr) throw vincErr
+      const vincResult = await vincResp.json()
+      if (!vincResp.ok) throw new Error(vincResult.error ?? 'No se pudo vincular la cuenta')
 
-      router.push(await getDestino(data.user.id))
+      const { data: doc } = await supabase.from('docentes').select('is_coordinador').eq('numero_nomina', nomina).single()
+      router.push(doc?.is_coordinador ? '/coordinador' : '/docente')
     } catch (err) {
       setError(err.message)
     } finally {
@@ -137,8 +185,8 @@ export default function LoginPage() {
           {mode === 'login' && (
             <form onSubmit={handleLogin}>
               <label style={{ fontSize: 13, color: '#6b6a60', display: 'block' }}>
-                Nómina
-                <input style={inp} value={nomina} onChange={e => setNomina(e.target.value)} required autoFocus />
+                Nómina o correo electrónico
+                <input style={inp} value={nomina} onChange={e => setNomina(e.target.value)} required autoFocus placeholder="Nómina o correo" />
               </label>
               <label style={{ fontSize: 13, color: '#6b6a60', display: 'block', marginTop: 14 }}>
                 Contraseña
@@ -160,6 +208,9 @@ export default function LoginPage() {
                 Correo electrónico
                 <input style={inp} type="email" value={correo} onChange={e => setCorreo(e.target.value)} required placeholder="tu@correo.com" />
               </label>
+              <p style={{ fontSize: 11, color: '#9a988c', margin: '6px 0 0', lineHeight: 1.5 }}>
+                🔒 Tu correo se usa únicamente para el registro de tu cuenta y comunicación con coordinación. No se comparte ni se utiliza con fines publicitarios.
+              </p>
               <label style={{ fontSize: 13, color: '#6b6a60', display: 'block', marginTop: 14 }}>
                 Nueva contraseña
                 <input style={inp} type="password" value={password} onChange={e => setPass(e.target.value)} required />

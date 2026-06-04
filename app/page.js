@@ -1,7 +1,5 @@
 'use client'
 
-import { useEffect } from 'react'
-
 const DISPLAY = "'Fraunces', Georgia, 'Times New Roman', serif"
 const BODY    = "'Hanken Grotesk', -apple-system, system-ui, sans-serif"
 const P       = '#6D28D9'
@@ -39,13 +37,6 @@ const cards = [
 ]
 
 export default function LandingPage() {
-  useEffect(() => {
-    const link = document.createElement('link')
-    link.rel  = 'stylesheet'
-    link.href = 'https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Hanken+Grotesk:wght@400;500;600;700&display=swap'
-    document.head.appendChild(link)
-  }, [])
-
   return (
     <main style={{ minHeight: '100vh', background: BG, fontFamily: BODY, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '40px 24px' }}>
 

@@ -19,13 +19,6 @@ export default function NuevaContrasena() {
   const recoveredRef            = useRef(false)
 
   useEffect(() => {
-    const link = document.createElement('link')
-    link.rel  = 'stylesheet'
-    link.href = 'https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Hanken+Grotesk:wght@400;500;600;700&display=swap'
-    document.head.appendChild(link)
-  }, [])
-
-  useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') {
         recoveredRef.current = true

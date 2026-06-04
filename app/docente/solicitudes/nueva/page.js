@@ -96,13 +96,6 @@ export default function NuevaSolicitudPage() {
   })
   const [filas, setFilas] = useState([blankRow()])
 
-  useEffect(() => {
-    const link = document.createElement('link')
-    link.rel = 'stylesheet'
-    link.href = 'https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Hanken+Grotesk:wght@400;500;600;700&display=swap'
-    document.head.appendChild(link)
-  }, [])
-
   useEffect(() => { load() }, [])
 
   async function load() {
@@ -159,18 +152,14 @@ export default function NuevaSolicitudPage() {
         ...(enviar ? { fecha_enviada: new Date().toISOString() } : {}),
       }
 
-      const { error: insertErr } = await supabase.from('solicitudes').insert(payload)
+      const { data: inserted, error: insertErr } = await supabase
+        .from('solicitudes')
+        .insert(payload)
+        .select('id')
+        .single()
       if (insertErr) throw new Error(insertErr.message)
 
-      // Obtener ID del registro recién creado (order por id, no por created_at)
-      const { data: recientes } = await supabase
-        .from('solicitudes')
-        .select('id')
-        .eq('docente_id', docente.id)
-        .order('id', { ascending: false })
-        .limit(1)
-
-      const solId = recientes?.[0]?.id
+      const solId = inserted?.id
 
       if (solId) {
         const rows = filas
@@ -217,8 +206,8 @@ export default function NuevaSolicitudPage() {
           <p style={{ fontSize: 11, letterSpacing: '0.18em', textTransform: 'uppercase', color: ACCENT, marginBottom: 2 }}>Cirujano Dentista</p>
           <h1 style={{ fontFamily: DISPLAY, fontSize: 20, fontWeight: 600, margin: 0 }}>Nueva solicitud de materiales</h1>
         </div>
-        <a href="/docente/solicitudes" style={{ padding: '5px 12px', borderRadius: 8, background: 'transparent', border: '1.5px solid #d4d0be', fontFamily: BODY, fontSize: 12, color: '#6b6a60', textDecoration: 'none' }}>
-          ← Mis solicitudes
+        <a href="/docente" style={{ padding: '5px 12px', borderRadius: 8, background: 'transparent', border: '1.5px solid #d4d0be', fontFamily: BODY, fontSize: 12, color: '#6b6a60', textDecoration: 'none' }}>
+          ← Panel docente
         </a>
       </header>
 
