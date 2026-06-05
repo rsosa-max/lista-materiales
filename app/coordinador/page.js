@@ -37,6 +37,10 @@ const BADGE_SOL = {
   borrador:  { background: '#f3f1e8', color: '#6b6a60',  label: 'Borrador'  },
   enviada:   { background: '#dbeafe', color: '#1e40af',  label: 'Enviada'   },
   recibida:  { background: '#e8f4f1', color: ACCENT,     label: 'Recibida'  },
+  ajustada:  { background: '#fef3c7', color: '#92400e',  label: 'Ajustada'  },
+  aprobada:  { background: '#dcfce7', color: '#166534',  label: 'Aprobada'  },
+  entregada: { background: '#ede9fe', color: '#5b21b6',  label: 'Entregada' },
+  cerrada:   { background: '#f1f5f9', color: '#475569',  label: 'Cerrada'   },
   procesada: { background: '#dcfce7', color: '#166534',  label: 'Procesada' },
 }
 
@@ -488,7 +492,7 @@ export default function CoordinadorPage() {
 
           {/* Filtros */}
           <div style={{ display: 'flex', gap: 8, marginBottom: 16, flexWrap: 'wrap' }}>
-            {['todas', 'borrador', 'enviada', 'recibida', 'procesada'].map(est => (
+            {['todas', 'borrador', 'enviada', 'recibida', 'ajustada', 'aprobada', 'entregada', 'cerrada', 'procesada'].map(est => (
               <button key={est} onClick={() => setFiltroEstado(est)}
                 style={{ padding: '4px 12px', borderRadius: 20, border: `1.5px solid ${filtroEstado === est ? ACCENT : '#d4d0be'}`, background: filtroEstado === est ? ACCENT : 'transparent', color: filtroEstado === est ? '#fff' : '#6b6a60', fontFamily: BODY, fontSize: 12, cursor: 'pointer', fontWeight: filtroEstado === est ? 600 : 400, textTransform: 'capitalize' }}>
                 {est === 'todas' ? 'Todas' : est.charAt(0).toUpperCase() + est.slice(1)}
@@ -575,38 +579,22 @@ export default function CoordinadorPage() {
                                   </table>
                                 )}
 
-                                <div style={{ marginBottom: 14 }}>
-                                  <p style={{ fontSize: 11, color: '#9a988c', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 4px' }}>Notas del coordinador</p>
-                                  <textarea
-                                    value={notasEdit[sol.id] ?? sol.notas_coordinador ?? ''}
-                                    onChange={e => setNotasEdit(prev => ({ ...prev, [sol.id]: e.target.value }))}
-                                    rows={2} placeholder="Agregar notas…"
-                                    style={{ width: '100%', padding: '7px 10px', borderRadius: 8, border: '1.5px solid #d4d0be', fontFamily: BODY, fontSize: 13, resize: 'vertical', boxSizing: 'border-box', outline: 'none' }}
-                                  />
-                                </div>
-
-                                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center' }}>
-                                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                                    {sol.estado === 'enviada' && (
-                                      <button onClick={e => { e.stopPropagation(); cambiarEstado(sol, 'recibida') }} disabled={savingEstado === sol.id} style={{ ...btn({ small: true }), opacity: savingEstado === sol.id ? 0.7 : 1 }}>
-                                        Marcar como recibida
-                                      </button>
+                                {(sol.notas_coordinador || sol.comentario_ajuste) && (
+                                  <div style={{ marginBottom: 14 }}>
+                                    {sol.comentario_ajuste && (
+                                      <div style={{ marginBottom: 10 }}>
+                                        <p style={{ fontSize: 11, color: '#9a988c', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 4px' }}>Comentario de Insumos</p>
+                                        <p style={{ fontSize: 13, color: '#78350f', background: '#fef3c7', borderRadius: 8, padding: '8px 12px', margin: 0, lineHeight: 1.6 }}>{sol.comentario_ajuste}</p>
+                                      </div>
                                     )}
-                                    {(sol.estado === 'enviada' || sol.estado === 'recibida') && (
-                                      <button onClick={e => { e.stopPropagation(); cambiarEstado(sol, 'procesada') }} disabled={savingEstado === sol.id} style={{ ...btn({ small: true, bg: '#166534' }), opacity: savingEstado === sol.id ? 0.7 : 1 }}>
-                                        Marcar como procesada
-                                      </button>
-                                    )}
-                                    {(notasEdit[sol.id] !== undefined && notasEdit[sol.id] !== (sol.notas_coordinador ?? '')) && (
-                                      <button onClick={e => { e.stopPropagation(); guardarNotas(sol.id) }} disabled={savingEstado === sol.id} style={{ ...btn({ small: true, bg: '#6b6a60' }), opacity: savingEstado === sol.id ? 0.7 : 1 }}>
-                                        Guardar notas
-                                      </button>
+                                    {sol.notas_coordinador && (
+                                      <div>
+                                        <p style={{ fontSize: 11, color: '#9a988c', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 4px' }}>Notas</p>
+                                        <p style={{ fontSize: 13, color: '#1C1B17', margin: 0, lineHeight: 1.6 }}>{sol.notas_coordinador}</p>
+                                      </div>
                                     )}
                                   </div>
-                                  <button onClick={e => { e.stopPropagation(); eliminarSolicitud(sol) }} disabled={savingEstado === sol.id} style={{ ...btn({ small: true, bg: '#e74c3c' }), opacity: savingEstado === sol.id ? 0.7 : 1 }}>
-                                    Eliminar
-                                  </button>
-                                </div>
+                                )}
                               </div>
                             </div>
                           </div>

@@ -32,6 +32,10 @@ const BADGE = {
   borrador:  { background: '#f3f1e8', color: '#6b6a60',  label: 'Borrador'  },
   enviada:   { background: '#dbeafe', color: '#1e40af',  label: 'Enviada'   },
   recibida:  { background: '#e8f4f1', color: ACCENT,     label: 'Recibida'  },
+  ajustada:  { background: '#fef3c7', color: '#92400e',  label: 'Ajustada'  },
+  aprobada:  { background: '#dcfce7', color: '#166534',  label: 'Aprobada'  },
+  entregada: { background: '#ede9fe', color: '#5b21b6',  label: 'Entregada' },
+  cerrada:   { background: '#f1f5f9', color: '#475569',  label: 'Cerrada'   },
   procesada: { background: '#dcfce7', color: '#166534',  label: 'Procesada' },
 }
 
@@ -518,6 +522,15 @@ export default function DocentePage() {
           }
         />
         <div style={{ flex: 1, padding: '24px', overflowY: 'auto' }}>
+          {solicitudes.some(s => s.estado === 'ajustada') && (
+            <div style={{ background: '#fef3c7', border: '1.5px solid #f59e0b', borderRadius: 12, padding: '14px 18px', marginBottom: 20, display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+              <span style={{ fontSize: 20, flexShrink: 0 }}>⚠️</span>
+              <p style={{ fontSize: 14, color: '#78350f', margin: 0, lineHeight: 1.6 }}>
+                <strong>Una de tus solicitudes fue ajustada por Insumos Dentales.</strong><br />
+                Revísala y responde antes de 48 horas para evitar la aprobación automática.
+              </p>
+            </div>
+          )}
           {solicitudes.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '60px 20px', background: '#fff', borderRadius: 16, border: '1px solid #e7e4d6' }}>
               <p style={{ fontFamily: DISPLAY, fontSize: 20, color: '#9a988c', marginBottom: 8 }}>Sin solicitudes aún</p>

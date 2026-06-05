@@ -23,11 +23,12 @@ export default function LoginPage() {
   const resetForm = () => { setNomina(''); setCorreo(''); setPass(''); setConfirm(''); setError(null); setSuccess(null) }
 
   async function getDestino(userId, userEmail) {
-    let { data } = await supabase.from('docentes').select('is_coordinador').eq('auth_user_id', userId).single()
+    let { data } = await supabase.from('docentes').select('is_coordinador, is_insumos').eq('auth_user_id', userId).single()
     if (!data && userEmail) {
-      const { data: d2 } = await supabase.from('docentes').select('is_coordinador').eq('email_real', userEmail).single()
+      const { data: d2 } = await supabase.from('docentes').select('is_coordinador, is_insumos').eq('email_real', userEmail).single()
       data = d2
     }
+    if (data?.is_insumos) return '/insumos'
     return data?.is_coordinador ? '/coordinador' : '/docente'
   }
 
@@ -123,8 +124,9 @@ export default function LoginPage() {
       const vincResult = await vincResp.json()
       if (!vincResp.ok) throw new Error(vincResult.error ?? 'No se pudo vincular la cuenta')
 
-      const { data: doc } = await supabase.from('docentes').select('is_coordinador').eq('numero_nomina', nomina).single()
-      router.push(doc?.is_coordinador ? '/coordinador' : '/docente')
+      const { data: doc } = await supabase.from('docentes').select('is_coordinador, is_insumos').eq('numero_nomina', nomina).single()
+      if (doc?.is_insumos) router.push('/insumos')
+      else router.push(doc?.is_coordinador ? '/coordinador' : '/docente')
     } catch (err) {
       setError(err.message)
     } finally {

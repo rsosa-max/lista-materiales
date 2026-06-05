@@ -28,6 +28,10 @@ const BADGE = {
   borrador:  { background: '#f3f1e8', color: '#6b6a60',  label: 'Borrador'  },
   enviada:   { background: '#dbeafe', color: '#1e40af',  label: 'Enviada'   },
   recibida:  { background: '#e8f4f1', color: '#0E6E62',  label: 'Recibida'  },
+  ajustada:  { background: '#fef3c7', color: '#92400e',  label: 'Ajustada'  },
+  aprobada:  { background: '#dcfce7', color: '#166534',  label: 'Aprobada'  },
+  entregada: { background: '#ede9fe', color: '#5b21b6',  label: 'Entregada' },
+  cerrada:   { background: '#f1f5f9', color: '#475569',  label: 'Cerrada'   },
   procesada: { background: '#dcfce7', color: '#166534',  label: 'Procesada' },
 }
 const UNIDADES = ['pieza', 'caja', 'rollo', 'kg', 'litro', 'gramos', 'ml', 'otro']
@@ -134,6 +138,11 @@ export default function SolicitudDetailPage() {
   const [form, setForm]   = useState(null)
   const [filas, setFilas] = useState([])
 
+  // Respuesta a ajuste (estado ajustada)
+  const [discutir, setDiscutir]               = useState(false)
+  const [comentarioDocente, setComentarioDocente] = useState('')
+  const [savingRespuesta, setSavingRespuesta]   = useState(false)
+
   useEffect(() => { load() }, [id])
 
   async function load() {
@@ -236,6 +245,30 @@ export default function SolicitudDetailPage() {
     } finally {
       setSaving(false)
     }
+  }
+
+  async function aceptarAjuste() {
+    setSavingRespuesta(true)
+    await supabase.from('solicitudes').update({
+      estado: 'aprobada',
+      fecha_aprobacion_docente: new Date().toISOString(),
+    }).eq('id', id)
+    setSavingRespuesta(false)
+    await load()
+  }
+
+  async function enviarComentarioDocente() {
+    if (!comentarioDocente.trim()) return
+    setSavingRespuesta(true)
+    const prevNotas = solicitud?.notas_coordinador ?? ''
+    const nuevaNotas = prevNotas
+      ? prevNotas + '\nDocente: ' + comentarioDocente.trim()
+      : 'Docente: ' + comentarioDocente.trim()
+    await supabase.from('solicitudes').update({ notas_coordinador: nuevaNotas }).eq('id', id)
+    setSavingRespuesta(false)
+    setDiscutir(false)
+    setComentarioDocente('')
+    await load()
   }
 
   if (loading) return (
@@ -345,6 +378,17 @@ export default function SolicitudDetailPage() {
           )}
         </div>
 
+        {solicitud?.estado === 'ajustada' && (
+          <div style={{ background: '#fef9c3', border: '2px solid #f59e0b', borderRadius: 12, padding: '16px 20px', marginBottom: 20 }}>
+            <p style={{ fontFamily: DISPLAY, fontSize: 16, fontWeight: 600, color: '#78350f', margin: '0 0 6px' }}>
+              ⚠️ Tu solicitud fue ajustada por Insumos Dentales
+            </p>
+            <p style={{ fontSize: 13, color: '#92400e', margin: 0, lineHeight: 1.6 }}>
+              Revisa los cambios a continuación y responde antes de 48 horas.
+              Si no respondes, los ajustes se aprobarán automáticamente.
+            </p>
+          </div>
+        )}
         {solicitud?.notas_coordinador && (
           <div style={{ background: '#e8f4f1', borderRadius: 10, padding: '12px 16px', fontSize: 13, marginBottom: 20, borderLeft: `3px solid ${ACCENT}` }}>
             <strong style={{ color: ACCENT, display: 'block', marginBottom: 4 }}>Notas del coordinador</strong>
@@ -413,6 +457,77 @@ export default function SolicitudDetailPage() {
                 + Agregar material
               </button>
             </>
+          ) : solicitud?.estado === 'ajustada' ? (
+            // Tabla comparativa para estado ajustada
+            <div>
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ borderCollapse: 'collapse', width: '100%', marginBottom: 20 }}>
+                  <thead>
+                    <tr style={{ background: '#faf9f4', borderBottom: '1px solid #eceadd' }}>
+                      {['#', 'Material', 'Solicitado', 'Ajustado', 'Nota'].map(h => (
+                        <th key={h} style={{ padding: '8px 12px', fontSize: 11, fontWeight: 600, color: '#9a988c', textAlign: h === '#' || h === 'Solicitado' || h === 'Ajustado' ? 'center' : 'left', textTransform: 'uppercase', letterSpacing: '0.04em', fontFamily: BODY }}>
+                          {h}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {materiales.map((m, i) => (
+                      <tr key={m.id} style={{ borderBottom: '1px solid #f0eee3' }}>
+                        <td style={{ padding: '8px 12px', textAlign: 'center', fontSize: 12, color: '#9a988c' }}>{i + 1}</td>
+                        <td style={{ padding: '8px 12px', fontSize: 14, fontWeight: 500 }}>{m.nombre_material}</td>
+                        <td style={{ padding: '8px 12px', textAlign: 'center', fontWeight: 700 }}>{m.cantidad ?? '—'}</td>
+                        <td style={{ padding: '8px 12px', textAlign: 'center' }}>
+                          {m.disponible === false
+                            ? <span style={{ color: '#e74c3c', fontWeight: 600, fontSize: 12 }}>No disponible</span>
+                            : m.cantidad_ajustada != null
+                              ? <strong style={{ color: '#92400e' }}>{m.cantidad_ajustada}</strong>
+                              : <span style={{ color: '#9a988c' }}>Sin cambio</span>}
+                        </td>
+                        <td style={{ padding: '8px 12px', fontSize: 12, color: '#9a988c', fontStyle: m.nota_ajuste ? 'italic' : 'normal' }}>
+                          {m.nota_ajuste || '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {solicitud.comentario_ajuste && (
+                <div style={{ background: '#fef3c7', borderRadius: 10, padding: '12px 16px', fontSize: 13, marginBottom: 20, borderLeft: '3px solid #f59e0b' }}>
+                  <strong style={{ color: '#92400e', display: 'block', marginBottom: 4 }}>Comentario de Insumos Dentales</strong>
+                  {solicitud.comentario_ajuste}
+                </div>
+              )}
+
+              {!discutir ? (
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                  <button onClick={aceptarAjuste} disabled={savingRespuesta}
+                    style={{ ...btn({ bg: '#166534' }), opacity: savingRespuesta ? 0.7 : 1 }}>
+                    {savingRespuesta ? 'Guardando…' : 'Acepto los ajustes'}
+                  </button>
+                  <button onClick={() => setDiscutir(true)} style={ghostBtn}>
+                    Necesito discutirlo
+                  </button>
+                </div>
+              ) : (
+                <div>
+                  <label style={{ fontSize: 13, color: '#6b6a60', display: 'block', marginBottom: 12 }}>
+                    Escribe tu comentario para Insumos Dentales:
+                    <textarea value={comentarioDocente} onChange={e => setComentarioDocente(e.target.value)}
+                      rows={4} placeholder="Describe tu inquietud o solicita una reunión…"
+                      style={{ ...inp(), marginTop: 6, resize: 'vertical', lineHeight: 1.5 }} />
+                  </label>
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <button onClick={enviarComentarioDocente} disabled={savingRespuesta || !comentarioDocente.trim()}
+                      style={{ ...btn(), opacity: savingRespuesta || !comentarioDocente.trim() ? 0.7 : 1 }}>
+                      {savingRespuesta ? 'Enviando…' : 'Enviar comentario'}
+                    </button>
+                    <button onClick={() => setDiscutir(false)} style={ghostBtn}>Cancelar</button>
+                  </div>
+                </div>
+              )}
+            </div>
           ) : (
             materiales.length > 0 ? (
               <table style={{ borderCollapse: 'collapse', width: '100%' }}>

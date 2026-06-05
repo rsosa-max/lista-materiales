@@ -27,7 +27,8 @@ export async function proxy(request) {
 
   const { pathname } = request.nextUrl
   const isPublicDocente = pathname === '/docente/nueva-contrasena'
-  if (!user && !isPublicDocente && (pathname.startsWith('/docente') || pathname.startsWith('/coordinador'))) {
+  const isProtected = pathname.startsWith('/docente') || pathname.startsWith('/coordinador') || pathname.startsWith('/insumos')
+  if (!user && !isPublicDocente && isProtected) {
     return NextResponse.redirect(new URL('/login', request.url))
   }
 
@@ -35,5 +36,5 @@ export async function proxy(request) {
 }
 
 export const config = {
-  matcher: ['/docente/:path*', '/coordinador/:path*'],
+  matcher: ['/docente/:path*', '/coordinador/:path*', '/insumos/:path*'],
 }
